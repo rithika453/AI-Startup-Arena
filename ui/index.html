@@ -44,9 +44,13 @@
       </section>
       <section class="card" id="step-requests">
         <h2>5. Collaboration requests <span class="badge sim">SIMULATED</span></h2>
+        <p class="hint" id="requestContext"></p>
+        <div class="row wrap" id="statusFilters" role="group" aria-label="Filter requests by status"></div>
         <div id="requests"></div>
         <h3>Your team</h3>
         <div id="team"></div>
+        <h3>Team activity <span class="badge sim">SIMULATED replies</span></h3>
+        <div id="activity"></div>
       </section>
     </div>
   </main>
@@ -56,13 +60,14 @@
     <form id="requestForm">
       <h3 id="reqTitle">Collaboration request</h3>
       <p class="hint">SIMULATED: this creates a demo record. No email or message is sent.</p>
-      <label for="reqMessage">Message</label>
+      <label for="reqMessage">Message (optional - leave blank to use a default message)</label>
       <textarea id="reqMessage" rows="5" maxlength="1000"></textarea>
       <label class="check"><input type="checkbox" id="reqConfirm"> I confirm I want to create this (simulated) collaboration request.</label>
       <p id="reqError" class="error" role="alert" hidden></p>
       <div class="row"><button class="primary" type="submit">Create request</button><button type="button" id="reqCancel" class="ghost">Cancel</button></div>
     </form>
   </dialog>
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
   <script src="/app.js"></script>
 </body>
 </html>

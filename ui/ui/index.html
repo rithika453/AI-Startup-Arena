@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Team Matching</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header>
+    <h1>Team Matching</h1>
+    <p class="sub">AI Startup Arena &middot; Member 6 module</p>
+    <div class="banners">
+      <span class="badge demo">DEMO candidate profiles - fictional people</span>
+      <span class="badge sim">SIMULATED requests - nothing is sent</span>
+      <span class="badge rule">Rule-based analysis - no AI model running</span>
+    </div>
+  </header>
+
+  <main>
+    <section class="card" id="step-idea">
+      <h2>1. Your startup idea</h2>
+      <label for="idea">Describe what you want to build, who it is for, and how it makes money.</label>
+      <textarea id="idea" rows="4" maxlength="2000" placeholder="e.g. A marketplace connecting farmers directly with buyers to sell fresh produce"></textarea>
+      <label for="founderSkills">Your own skills (optional, comma-separated) - roles you already cover are not flagged as gaps</label>
+      <input id="founderSkills" type="text" placeholder="e.g. product management, agile">
+      <div class="row">
+        <button id="analyze" class="primary">Find my team</button>
+        <button id="reset" class="ghost" type="button">Start over</button>
+      </div>
+      <p class="hint">Try an example:</p>
+      <div class="row wrap" id="examples"></div>
+      <p id="error" class="error" role="alert" hidden></p>
+    </section>
+
+    <div id="results" hidden>
+      <section class="card" id="step-analysis"><h2>2. Detected domain &amp; business type</h2><div id="analysis"></div></section>
+      <section class="card" id="step-roles"><h2>3. Suggested roles &amp; expertise</h2><div id="roles" class="grid"></div></section>
+      <section class="card" id="step-candidates">
+        <h2>4. Recommended candidates <span class="badge demo">DEMO profiles</span></h2>
+        <p class="hint" id="disclaimers"></p>
+        <div id="missing"></div>
+        <div id="candidates"></div>
+      </section>
+      <section class="card" id="step-requests">
+        <h2>5. Collaboration requests <span class="badge sim">SIMULATED</span></h2>
+        <p class="hint" id="requestContext"></p>
+        <div class="row wrap" id="statusFilters" role="group" aria-label="Filter requests by status"></div>
+        <div id="requests"></div>
+        <h3>Your team</h3>
+        <div id="team"></div>
+      </section>
+    </div>
+  </main>
+
+  <dialog id="profile"><div id="profileBody"></div><form method="dialog"><button>Close</button></form></dialog>
+  <dialog id="requestDialog">
+    <form id="requestForm">
+      <h3 id="reqTitle">Collaboration request</h3>
+      <p class="hint">SIMULATED: this creates a demo record. No email or message is sent.</p>
+      <label for="reqMessage">Message (optional - leave blank to use a default message)</label>
+      <textarea id="reqMessage" rows="5" maxlength="1000"></textarea>
+      <label class="check"><input type="checkbox" id="reqConfirm"> I confirm I want to create this (simulated) collaboration request.</label>
+      <p id="reqError" class="error" role="alert" hidden></p>
+      <div class="row"><button class="primary" type="submit">Create request</button><button type="button" id="reqCancel" class="ghost">Cancel</button></div>
+    </form>
+  </dialog>
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+  <script src="/app.js"></script>
+</body>
+</html>

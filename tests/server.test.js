@@ -58,3 +58,78 @@ test('API: invalid input returns clean 4xx errors', async () => {
     assert.equal((await call('/api/decisions', 'POST', { candidateId: 'C003', roleId: 'x', decision: 'accepted' })).status, 404);
   });
 });
+
+test('API: request fields, optional message, filters, single lookup and success messages', async () => {
+  await withServer(async (call) => {
+    await call('/api/match', 'POST', { idea: 'A marketplace connecting farmers directly with buyers to sell fresh produce', founderId: 'F-1', startupId: 'S-1' });
+    const body = { candidateId: 'C003', roleId: 'domain_expert_agriculture' };
+    const acc = await call('/api/decisions', 'POST', { ...body, decision: 'accepted' });
+    assert.equal(acc.status, 200); assert.ok(acc.json.message);
+
+    // message is optional
+    const created = await call('/api/requests', 'POST', { ...body, confirm: true });
+    assert.equal(created.status, 201);
+    const r = created.json.request;
+    assert.equal(r.founderId, 'F-1'); assert.equal(r.startupId, 'S-1'); assert.equal(r.status, 'Pending');
+    assert.ok(r.createdAt && r.updatedAt); assert.equal(r.respondedAt, null);
+    assert.match(created.json.message, /Nothing was sent/);
+
+    // validation errors
+    assert.equal((await call('/api/requests', 'POST', { roleId: body.roleId, confirm: true })).status, 400, 'missing candidateId');
+    assert.equal((await call('/api/requests', 'POST', { candidateId: 'bad id!', roleId: body.roleId, confirm: true })).status, 400, 'invalid id');
+    assert.equal((await call('/api/requests', 'POST', { ...body, message: 'short', confirm: true })).status, 400, 'short message');
+
+    // filters
+    assert.equal((await call('/api/requests?status=Pending')).json.count, 1);
+    assert.equal((await call('/api/requests?status=pending')).json.count, 1, 'case-insensitive');
+    assert.equal((await call('/api/requests?status=Accepted')).json.count, 0);
+    assert.equal((await call('/api/requests?status=all')).json.count, 1);
+    const bad = await call('/api/requests?status=Done');
+    assert.equal(bad.status, 400); assert.equal(bad.json.code, 'INVALID_STATUS');
+
+    // single request + simulated response + invalid transition
+    assert.equal((await call(`/api/requests/${r.id}`)).json.request.id, r.id);
+    assert.equal((await call('/api/requests/REQ-999')).status, 404);
+    const rej = await call(`/api/requests/${r.id}/simulate-response`, 'POST', { outcome: 'rejected' });
+    assert.equal(rej.status, 200); assert.match(rej.json.message, /SIMULATED/); assert.equal(rej.json.request.responseSimulated, true);
+    assert.equal((await call(`/api/requests/${r.id}/simulate-response`, 'POST', { outcome: 'accepted' })).status, 409, 'final status cannot change');
+    assert.equal((await call('/api/requests?status=Rejected')).json.count, 1);
+    assert.equal((await call(`/api/requests/${r.id}/simulate-response`, 'POST', { outcome: 'maybe' })).status, 400);
+  });
+});
+
+test('API: remove a member from the team', async () => {
+  await withServer(async (call) => {
+    await call('/api/match', 'POST', { idea: 'A marketplace connecting farmers directly with buyers to sell fresh produce' });
+    const body = { candidateId: 'C003', roleId: 'domain_expert_agriculture' };
+    await call('/api/decisions', 'POST', { ...body, decision: 'accepted' });
+    const created = await call('/api/requests', 'POST', { ...body, confirm: true });
+    const id = created.json.request.id;
+    assert.equal((await call(`/api/requests/${id}/remove-from-team`, 'POST')).status, 409);
+    await call(`/api/requests/${id}/simulate-response`, 'POST', { outcome: 'accepted' });
+    await call(`/api/requests/${id}/add-to-team`, 'POST');
+    const removed = await call(`/api/requests/${id}/remove-from-team`, 'POST');
+    assert.equal(removed.status, 200);
+    assert.match(removed.json.message, /removed/);
+    assert.equal((await call('/api/team')).json.team.length, 0);
+  });
+});
+
+test('API: team activity log', async () => {
+  await withServer(async (call) => {
+    await call('/api/match', 'POST', { idea: 'A marketplace connecting farmers directly with buyers to sell fresh produce' });
+    const body = { candidateId: 'C003', roleId: 'domain_expert_agriculture' };
+    await call('/api/decisions', 'POST', { ...body, decision: 'accepted' });
+    const created = await call('/api/requests', 'POST', { ...body, confirm: true });
+    const id = created.json.request.id;
+    await call(`/api/requests/${id}/simulate-response`, 'POST', { outcome: 'accepted' });
+    await call(`/api/requests/${id}/add-to-team`, 'POST');
+    await call(`/api/requests/${id}/remove-from-team`, 'POST');
+    const response = await call('/api/team/activity');
+    assert.equal(response.status, 200);
+    assert.equal(response.json.simulated, true);
+    assert.deepEqual(response.json.activity.map((a) => a.type), ['request_sent', 'candidate_accepted', 'added_to_team', 'removed_from_team']);
+    await call('/api/session/reset', 'POST');
+    assert.deepEqual((await call('/api/team/activity')).json.activity, []);
+  });
+});

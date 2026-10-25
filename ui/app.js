@@ -11,6 +11,10 @@ const $ = (id) => document.getElementById(id);
 let result = null;
 let decisions = {};
 let pendingRequest = null;
+let statusFilter = 'all';          // all | Pending | Accepted | Rejected
+let activeKeys = new Set();        // "candidateId|roleId" pairs that already have a Pending/Accepted request
+let toastTimer = null;
+const FILTERS = [['all', 'All'], ['Pending', 'Pending'], ['Accepted', 'Accepted'], ['Rejected', 'Rejected']];
 
 function h(tag, props = {}, ...kids) {
   const el = document.createElement(tag);
@@ -30,6 +34,11 @@ async function api(path, method = 'GET', body) {
   if (!res.ok || data.ok === false) throw new Error(data.error || (data.errors || []).join(' ') || 'Request failed.');
   return data;
 }
+function toast(msg, kind = 'ok') {
+  const t = $('toast'); t.textContent = msg; t.className = `toast ${kind}`; t.hidden = false;
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.hidden = true; }, kind === 'error' ? 7000 : 4500);
+}
+const fmtTime = (iso) => (iso ? new Date(iso).toLocaleString() : '-');
 function showError(msg) { const e = $('error'); e.textContent = msg || ''; e.hidden = !msg; }
 
 async function analyze() {
@@ -39,6 +48,7 @@ async function analyze() {
     const founderSkills = $('founderSkills').value.split(',').map((s) => s.trim()).filter(Boolean);
     result = await api('/api/match', 'POST', { idea: $('idea').value, founderSkills });
     decisions = {};
+    try { (await api('/api/decisions')).decisions.forEach((d) => { decisions[`${d.candidateId}|${d.roleId}`] = d.decision; }); } catch { /* optional */ }
     $('results').hidden = false;
     renderAll();
     await refreshRequests();
@@ -105,7 +115,7 @@ function candidateCard(role, c) {
       h('button', { onclick: () => showProfile(c.candidateId) }, 'View profile'),
       h('button', { onclick: () => decide(c, role, 'accepted'), disabled: state === 'accepted' }, 'Accept suggestion'),
       h('button', { onclick: () => decide(c, role, 'ignored'), disabled: state === 'ignored' }, 'Ignore'),
-      h('button', { class: 'primary', disabled: state !== 'accepted', title: state === 'accepted' ? '' : 'Accept the suggestion first', onclick: () => openRequest(c, role) }, 'Send collaboration request (simulated)')));
+      h('button', { class: 'primary', disabled: state !== 'accepted' || activeKeys.has(key), title: activeKeys.has(key) ? 'A Pending or Accepted request already exists for this candidate and role' : (state === 'accepted' ? '' : 'Accept the suggestion first'), onclick: () => openRequest(c, role) }, activeKeys.has(key) ? 'Request already sent (simulated)' : 'Send collaboration request (simulated)')));
 }
 
 async function decide(c, role, decision) {
@@ -113,7 +123,8 @@ async function decide(c, role, decision) {
     await api('/api/decisions', 'POST', { candidateId: c.candidateId, roleId: role.roleId, decision });
     decisions[`${c.candidateId}|${role.roleId}`] = decision;
     renderCandidates();
-  } catch (e) { showError(e.message); }
+    toast(decision === 'accepted' ? `Accepted ${c.name} for ${role.title}. You can now send a simulated request.` : `Ignored ${c.name} for ${role.title}.`);
+  } catch (e) { toast(e.message, 'error'); }
 }
 
 async function showProfile(id) {
@@ -144,33 +155,72 @@ function openRequest(c, role) {
 async function submitRequest(ev) {
   ev.preventDefault();
   try {
-    await api('/api/requests', 'POST', { ...pendingRequest, message: $('reqMessage').value, confirm: $('reqConfirm').checked });
+    const data = await api('/api/requests', 'POST', { ...pendingRequest, message: $('reqMessage').value, confirm: $('reqConfirm').checked });
     $('requestDialog').close();
+    statusFilter = 'all';
     await refreshRequests();
+    toast(data.message);
     $('step-requests').scrollIntoView({ behavior: 'smooth' });
   } catch (e) { $('reqError').textContent = e.message; $('reqError').hidden = false; }
 }
 
 async function refreshRequests() {
-  const [{ requests, summary }, { team }] = await Promise.all([api('/api/requests'), api('/api/team')]);
+  const filterQuery = statusFilter === 'all' ? '' : `?status=${encodeURIComponent(statusFilter)}`;
+  const [all, shown, { team }, { activity }] = await Promise.all([api('/api/requests'), filterQuery ? api(`/api/requests${filterQuery}`) : null, api('/api/team'), api('/api/team/activity')]);
+  const requests = (shown || all).requests;
+  const summary = all.summary;
+  // Remember which pairs already have an active request; re-render candidates only if that changed.
+  const nextKeys = new Set(all.requests.filter((r) => r.status !== 'Rejected' && r.founderId === all.context.founderId && r.startupId === all.context.startupId).map((r) => `${r.candidateId}|${r.roleId}`));
+  const changed = nextKeys.size !== activeKeys.size || [...nextKeys].some((k) => !activeKeys.has(k));
+  activeKeys = nextKeys;
+  if (changed && result) renderCandidates();
+
+  $('requestContext').textContent = `Founder: ${all.context.founderId} - Startup/project: ${all.context.startupId}. Candidate replies are SIMULATED demo data.`;
+  const counts = { all: all.requests.length, Pending: summary.pending, Accepted: summary.accepted, Rejected: summary.rejected };
+  $('statusFilters').replaceChildren(...FILTERS.map(([value, label]) => h('button', {
+    type: 'button', class: value === statusFilter ? 'primary' : '', 'aria-pressed': value === statusFilter ? 'true' : 'false',
+    onclick: () => { statusFilter = value; refreshRequests().catch((e) => toast(e.message, 'error')); },
+  }, `${label} (${counts[value]})`)));
+
   const box = $('requests');
-  if (!requests.length) box.replaceChildren(h('p', { class: 'hint' }, 'No requests yet. Accept a suggestion, then create a simulated request.'));
+  if (!all.requests.length) box.replaceChildren(h('p', { class: 'hint' }, 'No requests yet. Accept a suggestion, then create a simulated request.'));
+  else if (!requests.length) box.replaceChildren(h('p', { class: 'hint' }, `No ${statusFilter} requests.`));
   else box.replaceChildren(
-    h('p', { class: 'hint' }, `Pending ${summary.pending} - Accepted ${summary.accepted} - Rejected ${summary.rejected}. Candidate replies below are simulated for the demo.`),
-    h('table', {}, h('tr', {}, ['ID', 'Candidate', 'Role', 'Status', 'Actions'].map((t) => h('th', {}, t))),
+    h('table', {}, h('tr', {}, ['ID', 'Candidate / role', 'Status', 'Created / updated', 'Details', 'Actions'].map((t) => h('th', {}, t))),
       requests.map((r) => h('tr', {},
-        h('td', {}, r.id), h('td', {}, r.candidateName), h('td', {}, r.roleTitle), h('td', {}, pill(r.status, r.status)),
+        h('td', {}, r.id),
+        h('td', {}, h('div', {}, r.candidateName), h('div', { class: 'hint' }, r.roleTitle)),
+        h('td', {}, pill(r.status, r.status), r.responseSimulated ? pill('simulated reply') : null),
+        h('td', {}, h('div', {}, fmtTime(r.createdAt)), h('div', { class: 'hint' }, fmtTime(r.updatedAt))),
+        h('td', {}, h('details', {}, h('summary', {}, 'Message & history'),
+          h('p', {}, r.message, r.messageIsDefault ? ' (default message)' : ''),
+          h('div', { class: 'hint' }, `Founder ${r.founderId} - Startup ${r.startupId}`),
+          h('ul', {}, r.history.map((x) => h('li', {}, `${x.status} - ${fmtTime(x.at)} - ${x.by === 'simulated-candidate' ? 'SIMULATED candidate reply' : 'founder'}${x.note ? ` (${x.note})` : ''}`))))),
         h('td', {},
           r.status === 'Pending' ? [h('button', { onclick: () => simulate(r.id, 'accepted') }, 'Demo: candidate accepts'), ' ', h('button', { onclick: () => simulate(r.id, 'rejected') }, 'Demo: candidate declines')] : null,
           r.status === 'Accepted' && !team.some((t) => t.requestId === r.id) ? h('button', { class: 'primary', onclick: () => addToTeam(r.id) }, 'Add to my team') : null)))));
-  $('team').replaceChildren(team.length ? h('ul', {}, team.map((t) => h('li', {}, `${t.name} - ${t.roleTitle}`))) : h('p', { class: 'hint' }, 'No one on your team yet. Candidates are only added when you choose.'));
+  $('activity').replaceChildren(activity.length
+    ? h('ul', {}, [...activity].reverse().map((a) => h('li', {}, `${fmtTime(a.at)} - ${a.text} `, a.simulated ? pill('SIMULATED') : null)))
+    : h('p', { class: 'hint' }, 'No activity yet.'));
+  $('team').replaceChildren(team.length ? h('ul', {}, team.map((t) => h('li', {}, `${t.name} - ${t.roleTitle} `, h('button', { onclick: () => removeFromTeam(t.requestId) }, 'Remove from team')))) : h('p', { class: 'hint' }, 'No one on your team yet. Candidates are only added when you choose.'));
 }
-async function simulate(id, outcome) { try { await api(`/api/requests/${id}/simulate-response`, 'POST', { outcome }); await refreshRequests(); } catch (e) { showError(e.message); } }
-async function addToTeam(id) { try { await api(`/api/requests/${id}/add-to-team`, 'POST'); await refreshRequests(); } catch (e) { showError(e.message); } }
+async function simulate(id, outcome) {
+  try { const d = await api(`/api/requests/${encodeURIComponent(id)}/simulate-response`, 'POST', { outcome }); await refreshRequests(); toast(d.message); }
+  catch (e) { toast(e.message, 'error'); await refreshRequests().catch(() => {}); }
+}
+async function addToTeam(id) {
+  try { const d = await api(`/api/requests/${encodeURIComponent(id)}/add-to-team`, 'POST'); await refreshRequests(); toast(d.message); }
+  catch (e) { toast(e.message, 'error'); }
+}
+async function removeFromTeam(id) {
+  if (!window.confirm('Remove this person from your team? You can add them again later.')) return;
+  try { const d = await api(`/api/requests/${encodeURIComponent(id)}/remove-from-team`, 'POST'); await refreshRequests(); toast(d.message); }
+  catch (e) { toast(e.message, 'error'); }
+}
 
 async function resetAll() {
   await api('/api/session/reset', 'POST');
-  result = null; decisions = {}; $('results').hidden = true; $('idea').value = ''; $('founderSkills').value = ''; showError('');
+  result = null; decisions = {}; activeKeys = new Set(); statusFilter = 'all'; $('results').hidden = true; $('idea').value = ''; $('founderSkills').value = ''; showError('');
 }
 
 $('examples').replaceChildren(...EXAMPLES.map(([label, text]) => h('button', { type: 'button', onclick: () => { $('idea').value = text; } }, label)));

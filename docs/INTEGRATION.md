@@ -26,16 +26,22 @@ const result = tm.runTeamMatching({
 if (!result.ok) { /* result.errors: string[] - show to the founder */ }
 
 // Founder actions (one store per founder session; swap for a DB-backed class with the same methods)
-const store = new tm.CollaborationStore();
-store.setSuggestions(result);
+const store = new tm.CollaborationStore();          // optional { founderId, startupId } defaults
+store.setSuggestions(result, { founderId, startupId }); // context optional; defaults FOUNDER-DEMO / STARTUP-DEMO
 store.decide(candidateId, roleId, 'accepted' | 'ignored');
-store.sendRequest({ candidateId, roleId, message, confirm: true });   // creates a SIMULATED Pending request
+store.sendRequest({ candidateId, roleId, message?, confirm: true, founderId?, startupId? }); // SIMULATED Pending request; message optional (10-1000 chars)
 store.simulateCandidateResponse(requestId, 'accepted' | 'rejected');  // DEMO ONLY - replace with real replies
 store.addToTeam(requestId);                                           // founder action, Accepted requests only
-store.listRequests(status?), store.getTeam(), store.summary();
+store.removeFromTeam(requestId);
+store.getActivity();
+store.listRequests(status?, { candidateId?, startupId?, founderId? }); // status: Pending|Accepted|Rejected|all (case-insensitive)
+store.getRequest(requestId), store.hasActiveRequest(candidateId, roleId), store.getTeam(), store.summary();
 ```
 
-`StoreError` has a `.code`: `NOT_SUGGESTED, NOT_ACCEPTED, CONSENT_REQUIRED, INVALID_MESSAGE, DUPLICATE_REQUEST, REQUEST_EXISTS, INVALID_TRANSITION, INVALID_DECISION, INVALID_OUTCOME, NOT_FOUND, ALREADY_IN_TEAM, INVALID_RESULT`.
+Request record: `id, founderId, startupId, candidateId, candidateName, roleId, roleTitle, message, messageIsDefault, status, simulated, createdAt, updatedAt, respondedAt, responseSimulated?, history[{status, at, by}]`.
+IDs must be strings of up to 64 letters, digits, `-`, `_`, `.` or `:`. One Pending/Accepted request is allowed per founder + startup + candidate + role; a Rejected request may be re-sent.
+
+`StoreError` has a `.code`: `MISSING_FIELD, INVALID_ID, INVALID_STATUS, NOT_SUGGESTED, NOT_ACCEPTED, CONSENT_REQUIRED, INVALID_MESSAGE, DUPLICATE_REQUEST, REQUEST_EXISTS, INVALID_TRANSITION, INVALID_DECISION, INVALID_OUTCOME, NOT_FOUND, ALREADY_IN_TEAM, NOT_IN_TEAM, INVALID_RESULT`.
 
 ### Input: candidate profile
 
@@ -72,12 +78,16 @@ On failure: `{ ok: false, errors: string[] }`. Core functions do not throw on ba
 | Method + path | Body | Notes |
 |---|---|---|
 | `POST /api/analyze` | `{ idea, founderSkills? }` | steps 1-3 |
-| `POST /api/match` | `{ idea, founderSkills?, scoringConfig? }` | full result; also registers suggestions in the session store. Uses the DEMO pool. |
+| `POST /api/match` | `{ idea, founderSkills?, scoringConfig?, founderId?, startupId? }` | full result; also registers suggestions in the session store. Uses the DEMO pool. |
 | `GET /api/candidates`, `/api/candidates/:id` | | DEMO profiles |
 | `POST /api/decisions` / `GET /api/decisions` | `{ candidateId, roleId, decision }` | accepted / ignored |
-| `POST /api/requests` / `GET /api/requests[?status=Pending]` | `{ candidateId, roleId, message, confirm: true }` | simulated; 201 |
+| `POST /api/requests` | `{ candidateId, roleId, message?, confirm: true, founderId?, startupId? }` | simulated; 201; response includes a `message` |
+| `GET /api/requests` (filters: `status`, `candidateId`, `startupId`, `founderId`) | | history + `summary`, `count`, `context`; bad status gives 400 `INVALID_STATUS` |
+| `GET /api/requests/:id` | | one request with its history; 404 if unknown |
 | `POST /api/requests/:id/simulate-response` | `{ outcome }` | DEMO only |
 | `POST /api/requests/:id/add-to-team`, `GET /api/team` | | founder action |
+| `POST /api/requests/:id/remove-from-team` | | 409 `NOT_IN_TEAM` if not on the team |
+| `GET /api/team/activity` | | oldest first; candidate replies have `simulated: true` |
 | `POST /api/session/reset`, `GET /api/health`, `GET /api/domains` | | |
 
 The HTTP server has **no authentication** and one session per process; put it behind the main app's auth/session layer before real use.

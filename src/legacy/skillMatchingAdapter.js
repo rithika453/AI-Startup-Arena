@@ -14,7 +14,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 
-const DEFAULT_PATH = path.resolve(__dirname, '../../../skill-matching/skillMatching.js');
+const DEFAULT_PATH = path.resolve(__dirname, '../../skill-matching/skillMatching.js');
 
 function localCalculateMatch(requiredSkills, candidateSkills) {
   const required = [...new Set(requiredSkills.map((s) => s.toLowerCase()))];

@@ -7,14 +7,17 @@
  *   GET  /api/candidates, /api/candidates/:id        (DEMO profiles)
  *   GET  /api/domains
  *   POST /api/analyze          { idea, founderSkills? }
- *   POST /api/match            { idea, founderSkills?, scoringConfig? }
+ *   POST /api/match            { idea, founderSkills?, scoringConfig?, founderId?, startupId? }
  *   POST /api/decisions        { candidateId, roleId, decision: "accepted"|"ignored" }
  *   GET  /api/decisions
- *   POST /api/requests         { candidateId, roleId, message, confirm: true }   (SIMULATED)
- *   GET  /api/requests
+ *   POST /api/requests         { candidateId, roleId, message?, confirm: true, founderId?, startupId? } (SIMULATED)
+ *   GET  /api/requests[?status=Pending|Accepted|Rejected|all&candidateId=&startupId=&founderId=]
+ *   GET  /api/requests/:id
  *   POST /api/requests/:id/simulate-response   { outcome: "accepted"|"rejected" } (DEMO ONLY)
  *   POST /api/requests/:id/add-to-team
+ *   POST /api/requests/:id/remove-from-team
  *   GET  /api/team
+ *   GET  /api/team/activity
  *   POST /api/session/reset
  */
 const http = require('node:http');
@@ -29,7 +32,7 @@ const UI_DIR = path.resolve(__dirname, '../ui');
 const STATIC = { '/': 'index.html', '/index.html': 'index.html', '/app.js': 'app.js', '/styles.css': 'styles.css' };
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8' };
 const MAX_BODY = 100 * 1024;
-const HTTP_FOR = { NOT_FOUND: 404, NOT_SUGGESTED: 404, DUPLICATE_REQUEST: 409, INVALID_TRANSITION: 409, REQUEST_EXISTS: 409, ALREADY_IN_TEAM: 409 };
+const HTTP_FOR = { NOT_FOUND: 404, NOT_SUGGESTED: 404, DUPLICATE_REQUEST: 409, INVALID_TRANSITION: 409, REQUEST_EXISTS: 409, ALREADY_IN_TEAM: 409, NOT_IN_TEAM: 409 };
 
 function send(res, status, body) {
   const data = JSON.stringify(body);
@@ -92,30 +95,45 @@ function createServer({ store = new CollaborationStore() } = {}) {
         // The API always uses the demo pool; caller-supplied pools are for in-process integration.
         const r = runTeamMatching({ idea: body.idea, founderSkills: body.founderSkills, scoringConfig: body.scoringConfig });
         if (!r.ok) return send(res, 400, r);
-        store.setSuggestions(r);
-        return send(res, 200, r);
+        store.setSuggestions(r, { founderId: body.founderId, startupId: body.startupId });
+        return send(res, 200, { ...r, context: store.getContext() });
       }
 
       if (req.method === 'GET' && p === '/api/decisions') return send(res, 200, { ok: true, decisions: store.getDecisions() });
       if (req.method === 'POST' && p === '/api/decisions') {
         const b = await readJson(req);
-        return send(res, 200, { ok: true, decision: store.decide(b.candidateId, b.roleId, b.decision) });
+        const decision = store.decide(b.candidateId, b.roleId, b.decision);
+        return send(res, 200, { ok: true, decision, message: decision.decision === 'accepted' ? 'Suggestion accepted. You can now send a (simulated) collaboration request.' : 'Suggestion ignored.' });
       }
-      if (req.method === 'GET' && p === '/api/requests') return send(res, 200, { ok: true, simulated: true, requests: store.listRequests(url.searchParams.get('status') || undefined), summary: store.summary() });
+      if (req.method === 'GET' && p === '/api/requests') {
+        const q = (name) => url.searchParams.get(name) || undefined;
+        const requests = store.listRequests(q('status'), { candidateId: q('candidateId'), startupId: q('startupId'), founderId: q('founderId') });
+        return send(res, 200, { ok: true, simulated: true, count: requests.length, requests, summary: store.summary(), context: store.getContext() });
+      }
       if (req.method === 'POST' && p === '/api/requests') {
         const b = await readJson(req);
-        return send(res, 201, { ok: true, simulated: true, request: store.sendRequest(b) });
+        const request = store.sendRequest(b);
+        return send(res, 201, { ok: true, simulated: true, request, message: `Simulated request ${request.id} created with status Pending. Nothing was sent to ${request.candidateName}.` });
       }
-      m = p.match(/^\/api\/requests\/([^/]+)\/(simulate-response|add-to-team)$/);
+      m = p.match(/^\/api\/requests\/([^/]+)$/);
+      if (req.method === 'GET' && m) return send(res, 200, { ok: true, simulated: true, request: store.getRequest(decodeURIComponent(m[1])) });
+      m = p.match(/^\/api\/requests\/([^/]+)\/(simulate-response|add-to-team|remove-from-team)$/);
       if (req.method === 'POST' && m) {
         const id = decodeURIComponent(m[1]);
         if (m[2] === 'simulate-response') {
           const b = await readJson(req);
-          return send(res, 200, { ok: true, simulated: true, request: store.simulateCandidateResponse(id, b.outcome) });
+          const request = store.simulateCandidateResponse(id, b.outcome);
+          return send(res, 200, { ok: true, simulated: true, request, message: `SIMULATED reply: ${request.candidateName} ${request.status === 'Accepted' ? 'accepted' : 'declined'} request ${request.id}. This is demo data, not a real response.` });
         }
-        return send(res, 200, { ok: true, member: store.addToTeam(id) });
+        if (m[2] === 'remove-from-team') {
+          const gone = store.removeFromTeam(id);
+          return send(res, 200, { ok: true, member: gone, message: `${gone.name} was removed from your team.` });
+        }
+        const member = store.addToTeam(id);
+        return send(res, 200, { ok: true, member, message: `${member.name} was added to your team as ${member.roleTitle}.` });
       }
       if (req.method === 'GET' && p === '/api/team') return send(res, 200, { ok: true, team: store.getTeam() });
+      if (req.method === 'GET' && p === '/api/team/activity') return send(res, 200, { ok: true, simulated: true, activity: store.getActivity() });
       if (req.method === 'POST' && p === '/api/session/reset') { store.reset(); return send(res, 200, { ok: true }); }
 
       return send(res, 404, { ok: false, error: 'Not found.' });
