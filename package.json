@@ -1,0 +1,13 @@
+{
+  "name": "team-matching",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AI Startup Arena - Member 6: startup-aware Team Matching module (rule-based prototype)",
+  "main": "src/index.js",
+  "engines": { "node": ">=18" },
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node --test",
+    "demo": "node src/cli.js"
+  }
+}
