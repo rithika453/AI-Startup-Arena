@@ -3,6 +3,7 @@ const { generateTasks } = require("./taskGenerator");
 const { validateEvidence } = require("./evidenceValidator");
 const { compareEvaluations } = require("./compareEngine");
 const { buildReceipt } = require("./receiptBuilder");
+const { expiryReport, computeExpiresAt } = require("./expiryMonitor");
 const v1 = require("./samples/sample-v1.json");
 const v2 = require("./samples/sample-v2.json");
 const evidenceList = require("./samples/sample-evidence.json");
@@ -59,3 +60,13 @@ console.log("No evidence note:", noEvidence.note);
 const same = buildReceipt(compareEvaluations(v1, v1), evidenceList, tasks);
 console.log("Same version headline:", same.headline, "| score change:", same.scoreChange);
 console.log("Null comparison returns:", buildReceipt(null, evidenceList, tasks));
+
+// ---------- Test 5: expiry monitor ----------
+console.log("\n=== EVIDENCE EXPIRY (checked on 2026-10-26) ===");
+const today = new Date("2026-10-26");
+const report = expiryReport(evidenceList, today);
+console.table(report.items);
+console.log("Fresh:", report.fresh, "| Expiring:", report.expiring,
+  "| Expired:", report.expired, "| Usable:", report.usableCount);
+console.log("Expiry date for new text evidence:", computeExpiresAt("text", today));
+console.log("Empty list report:", expiryReport([], today));
