@@ -4,6 +4,7 @@ const { validateEvidence } = require("./evidenceValidator");
 const { compareEvaluations } = require("./compareEngine");
 const { buildReceipt } = require("./receiptBuilder");
 const { expiryReport, computeExpiresAt } = require("./expiryMonitor");
+const { findContradictions } = require("./contradictionFinder");
 const v1 = require("./samples/sample-v1.json");
 const v2 = require("./samples/sample-v2.json");
 const evidenceList = require("./samples/sample-evidence.json");
@@ -70,3 +71,24 @@ console.log("Fresh:", report.fresh, "| Expiring:", report.expiring,
   "| Expired:", report.expired, "| Usable:", report.usableCount);
 console.log("Expiry date for new text evidence:", computeExpiresAt("text", today));
 console.log("Empty list report:", expiryReport([], today));
+
+// ---------- Test 6: contradiction finder ----------
+console.log("\n=== CONTRADICTION TIMELINE ===");
+const contradictions = findContradictions(v1, v2, evidenceList, new Date("2026-10-26"));
+console.log(JSON.stringify(contradictions, null, 2));
+
+// Edge case: negative evidence
+const badEvidence = [{
+  _id: "e9",
+  weaknessId: "w1",
+  type: "text",
+  content: "We interviewed 10 people and nobody was interested in paying",
+  createdAt: "2026-10-22T10:00:00Z",
+}];
+console.log("\nWith negative evidence:");
+console.log(findContradictions(v1, v2, badEvidence, new Date("2026-10-26")).map(x => x.type + ": " + x.oldClaim + " -> " + x.newFinding));
+console.log("Missing v2 returns:", findContradictions(v1, null, evidenceList));
+
+// ---------- Test 7: index.js exports everything ----------
+console.log("\n=== INDEX EXPORTS ===");
+console.log(Object.keys(require("./index")));
