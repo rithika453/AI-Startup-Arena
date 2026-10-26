@@ -1,0 +1,25 @@
+{
+  "name": "ai-startup-arena",
+  "version": "1.0.0",
+  "description": "AI Startup Arena is an AI-powered platform that helps founders evaluate and improve startup ideas through multi-agent AI analysis, evidence-based feedback, actionable tasks, skill-based team matching, and investor-readiness assessment.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rithika453/AI-Startup-Arena.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/rithika453/AI-Startup-Arena/issues"
+  },
+  "homepage": "https://github.com/rithika453/AI-Startup-Arena#readme",
+  "dependencies": {
+    "dotenv": "^18.0.9",
+    "mongoose": "^9.11.4"
+  }
+}
