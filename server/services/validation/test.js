@@ -2,6 +2,7 @@
 const { generateTasks } = require("./taskGenerator");
 const { validateEvidence } = require("./evidenceValidator");
 const { compareEvaluations } = require("./compareEngine");
+const { buildReceipt } = require("./receiptBuilder");
 const v1 = require("./samples/sample-v1.json");
 const v2 = require("./samples/sample-v2.json");
 const evidenceList = require("./samples/sample-evidence.json");
@@ -45,3 +46,16 @@ console.log("New weaknesses:    ", c.newWeaknesses.map(w => w.id + " " + w.text)
 
 // Edge case: missing v2 must not crash
 console.log("\nMissing v2 returns:", compareEvaluations(v1, null));
+
+// ---------- Test 4: decision change receipt ----------
+console.log("\n=== DECISION CHANGE RECEIPT ===");
+const receipt = buildReceipt(c, evidenceList, tasks);
+console.log(JSON.stringify(receipt, null, 2));
+
+// Edge cases
+console.log("\n=== RECEIPT EDGE CASES ===");
+const noEvidence = buildReceipt(c, [], tasks);
+console.log("No evidence note:", noEvidence.note);
+const same = buildReceipt(compareEvaluations(v1, v1), evidenceList, tasks);
+console.log("Same version headline:", same.headline, "| score change:", same.scoreChange);
+console.log("Null comparison returns:", buildReceipt(null, evidenceList, tasks));
