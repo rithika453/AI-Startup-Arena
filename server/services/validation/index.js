@@ -9,6 +9,7 @@ const { buildReceipt } = require("./receiptBuilder");
 const { findContradictions } = require("./contradictionFinder");
 const { expiryStatus, expiryReport, computeExpiresAt } = require("./expiryMonitor");
 const { syncTasks, addManualTask, updateTask, canAccessStartup, unresolvedTasks } = require("./taskTracker");
+const { syncTasks, syncContradictionTasks, syncEvidenceGapTasks, syncAllTasks, addManualTask, updateTask, canAccessStartup, unresolvedTasks } = require("./taskTracker");
 
 module.exports = {
   generateTasks,
@@ -24,4 +25,7 @@ module.exports = {
   updateTask,
   canAccessStartup,
   unresolvedTasks,
+  syncContradictionTasks,
+  syncEvidenceGapTasks,
+  syncAllTasks,
 };
