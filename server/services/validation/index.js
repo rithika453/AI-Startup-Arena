@@ -8,7 +8,6 @@ const { compareEvaluations } = require("./compareEngine");
 const { buildReceipt } = require("./receiptBuilder");
 const { findContradictions } = require("./contradictionFinder");
 const { expiryStatus, expiryReport, computeExpiresAt } = require("./expiryMonitor");
-const { syncTasks, addManualTask, updateTask, canAccessStartup, unresolvedTasks } = require("./taskTracker");
 const { syncTasks, syncContradictionTasks, syncEvidenceGapTasks, syncAllTasks, addManualTask, updateTask, canAccessStartup, unresolvedTasks } = require("./taskTracker");
 
 module.exports = {
