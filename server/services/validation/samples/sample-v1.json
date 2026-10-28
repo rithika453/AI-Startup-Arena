@@ -1,0 +1,45 @@
+{
+  "_id": "eval1",
+  "idea": "idea1",
+  "version": 1,
+  "overallScore": 5.2,
+  "verdict": "Risky",
+  "agents": [
+    {
+      "agent": "market",
+      "score": 5,
+      "strengths": ["Large target audience"],
+      "weaknesses": [
+        { "id": "w1", "text": "No proof of customer demand", "severity": "high" }
+      ],
+      "questions": ["Who have you spoken to so far?"]
+    },
+    {
+      "agent": "finance",
+      "score": 6,
+      "strengths": ["Low startup cost"],
+      "weaknesses": [
+        { "id": "w2", "text": "No revenue model defined", "severity": "medium" }
+      ],
+      "questions": ["How will you make money?"]
+    },
+    {
+      "agent": "marketing",
+      "score": 5,
+      "strengths": [],
+      "weaknesses": [
+        { "id": "w3", "text": "No acquisition channel tested", "severity": "medium" }
+      ],
+      "questions": ["Where will your first 100 users come from?"]
+    },
+    {
+      "agent": "risk",
+      "score": 5,
+      "strengths": [],
+      "weaknesses": [
+        { "id": "w4", "text": "Strong competitors already exist", "severity": "high" }
+      ],
+      "questions": ["What makes you different from competitors?"]
+    }
+  ]
+}
