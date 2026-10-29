@@ -1,0 +1,52 @@
+[
+  {
+    "_id": "e1",
+    "idea": "idea1",
+    "task": "t1",
+    "weaknessId": "w1",
+    "type": "text",
+    "content": "Interviewed 8 college students about proof of customer demand, 6 said they would pay for this",
+    "createdAt": "2026-10-15T10:00:00Z",
+    "expiresAt": "2026-12-14T00:00:00Z"
+  },
+  {
+    "_id": "e2",
+    "idea": "idea1",
+    "task": "t2",
+    "weaknessId": "w2",
+    "type": "link",
+    "content": "not a link",
+    "createdAt": "2026-07-01T10:00:00Z",
+    "expiresAt": "2026-10-01T00:00:00Z"
+  },
+  {
+    "_id": "e3",
+    "idea": "idea1",
+    "task": "t3",
+    "weaknessId": "w3",
+    "type": "text",
+    "content": "Tried some ads",
+    "createdAt": "2026-10-18T10:00:00Z",
+    "expiresAt": "2026-12-17T00:00:00Z"
+  },
+  {
+    "_id": "e4",
+    "idea": "idea1",
+    "task": "t4",
+    "weaknessId": "w4",
+    "type": "link",
+    "content": "https://example.com/competitor-comparison-sheet",
+    "createdAt": "2026-10-20T10:00:00Z",
+    "expiresAt": "2027-01-18T00:00:00Z"
+  },
+  {
+    "_id": "e5",
+    "idea": "idea1",
+    "task": "t3",
+    "weaknessId": "w3",
+    "type": "text",
+    "content": "Landing page test ran for 7 days and collected 42 signups from an acquisition channel on Instagram",
+    "createdAt": "2026-09-05T10:00:00Z",
+    "expiresAt": "2026-11-02T00:00:00Z"
+  }
+]

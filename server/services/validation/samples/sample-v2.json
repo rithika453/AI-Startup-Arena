@@ -1,0 +1,46 @@
+{
+  "_id": "eval2",
+  "idea": "idea1",
+  "version": 2,
+  "overallScore": 6.5,
+  "verdict": "Promising",
+  "agents": [
+    {
+      "agent": "market",
+      "score": 7,
+      "strengths": ["Demand confirmed by customer interviews"],
+      "weaknesses": [
+        { "id": "w6", "text": "Demand limited to a niche segment", "severity": "medium" }
+      ],
+      "questions": []
+    },
+    {
+      "agent": "finance",
+      "score": 6,
+      "strengths": ["Low startup cost"],
+      "weaknesses": [
+        { "id": "w2", "text": "No revenue model defined", "severity": "medium" },
+        { "id": "w5", "text": "Pricing not validated with customers", "severity": "low" }
+      ],
+      "questions": []
+    },
+    {
+      "agent": "marketing",
+      "score": 7,
+      "strengths": ["Landing page test shows early interest"],
+      "weaknesses": [
+        { "id": "w3", "text": "No acquisition channel tested", "severity": "medium" }
+      ],
+      "questions": []
+    },
+    {
+      "agent": "risk",
+      "score": 6,
+      "strengths": [],
+      "weaknesses": [
+        { "id": "w4", "text": "Strong competitors already exist", "severity": "high" }
+      ],
+      "questions": []
+    }
+  ]
+}
